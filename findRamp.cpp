@@ -118,7 +118,13 @@ UINT findRampPivot(
   return findRampPivot( container, midIdx + 1, highIdx, tries );
 }
 
-void skipRepeating( const CONTAINER *container, UINT *idx, INT delta, UINT size )
+// skipRepeating
+// Skip repeating values in an array of a given size
+// Entry: pointer to container
+//        size of container in elements
+//        pointer to idx to skip
+//        delta (use -1)
+void skipRepeating( const CONTAINER *container, UINT size, UINT *idx, INT delta )
 {
   UINT startIdx = *idx;
   bool wrapped = false; // keep track of this in case we cross the seam, need
