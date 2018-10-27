@@ -2,7 +2,10 @@
 // at an arbitrary point in an array and finds the start using
 // a binary search with goal of O ( log n ) performance.
 //
-// The array is sorted. Duplicate values are allowed.
+// The array is sorted in ascending order. 
+// Duplicate values may be present.
+// The upper value bound for the array is unknown.
+
 // Performance for sets with non-unique values is O (log n)
 // Performance for sets containing duplicates is O (log n dupes n)
 //
@@ -30,7 +33,7 @@ typedef __int32_t INT;
 // Constants
 const unsigned CONTAINER_SIZE = 32;
 const unsigned SAMPLE_ITERATIONS = 1000;
-const unsigned RANGE = CONTAINER_SIZE * 2;
+const unsigned RANGE = CONTAINER_SIZE;
 const unsigned MAX_DEPTH = 1 << 24;
 const unsigned INCREMENT_BOUND = 4;
 
@@ -41,8 +44,6 @@ void freeContainer( CONTAINER *container )
     delete( container );
   }
 }
-
-
 
 CONTAINER *allocContainer( SIZE size )
 {
@@ -55,7 +56,7 @@ void generateRamp( CONTAINER *container, SIZE size, UINT startIdx, bool dupes )
   CONTAINER j = 0;
   do {
     container[ i ] = j;
-    j += rand() % INCREMENT_BOUND;
+    j += 1; // rand() % INCREMENT_BOUND;
     if( !dupes ) {
       if( !j ) {
         j++;
@@ -70,84 +71,83 @@ UINT findRecurse(
     SIZE subsectionSize,
     SIZE fullSize,
     UINT idx,
-    UINT compVal,
     UINT depth,
-    UINT *tries
+    UINT *tries,
+    UINT *lwm,
+    UINT *lwmIdx
     )
 {
   (*tries)++;
   // santiy check
   assert( depth < MAX_DEPTH );
 
-  // test for ramp edge
-  UINT idx1 = ( idx + 1 ) % fullSize;
-#if 0
-  std::cout << "DEPTH " << depth
-    << " IDX " << idx
-    << " CV " << compVal
-    << " IDXVAL " << container[ idx ]
-    << " IDX1VAL " << container[ idx1 ]
-    << EL;
-#endif
-  if( container[ idx1 ] < container[ idx ] ) {
-    return idx1;
-  } else {
-    // If we're high (top half of value range), move up; if low, move down
-    if( container[ idx ] < compVal ) {
-      return findRecurse(
-          container,
-          subsectionSize >> 1,
-          fullSize,
-          ( idx - ( ( subsectionSize >> 2 )
-                    ? ( subsectionSize >> 2 ) : 1 ) )
-          % fullSize,
-          container[ idx ],
-          ++depth,
-          tries
-          );
-    } else if ( container[ idx ] > compVal ) {
-      return findRecurse(
-          container,
-          subsectionSize >> 1,
-          fullSize,
-          ( idx + ( ( subsectionSize >> 2 )
-                    ? ( subsectionSize >> 2 ) : 1 ) )
-          % fullSize,
-          container[ idx1 ],
-          ++depth,
-          tries
-          );
-    } else {
-      // equal to compVal
-      // For this case, we will skip past the run of sames
-      // Note this little piece of the operation is log(n);
-      // if there are many sames in a set, this algorithm is suboptimal.
-      UINT candidateIdx = idx1;
-      INT candidateInc = 1;
-      do {
-        candidateIdx = ( candidateIdx + candidateInc ) % fullSize;
-      } while( container[ candidateIdx ] == container[ idx1 ] );
+  UINT valL = 0, valR = 0;
+  UINT idxL, idxR, startIdx;
+  idxL = (idx - ( subsectionSize + 1 ) / 2) % fullSize;
+  idxR = (idx + ( subsectionSize + 1 ) / 2) % fullSize;
 
-      // Now that we've iterated past the run, continue the search
-      return findRecurse(
-          container,
-          subsectionSize >> 1,
-          fullSize,
-          candidateIdx,
-          container[ idx1 ],
-          ++depth,
-          tries
-          );
-    }
+  // skip past any dupes, guarding against infinite loop
+  valL = container[ idxL ];
+  valR = container[ idxR ];
+  startIdx = valL;
+  while( valL == valR && valL != startIdx ) {
+    idxL = ( idxL + 1 ) % fullSize;
+    idxR = ( idxR + 1 ) % fullSize;
+    idxL = container[ idxL ];
+    valR = container[ idxR ];
+  }
+
+  // Update low water mark
+  if( valL < *lwm ) {
+    *lwm = valL;
+    *lwmIdx = idxL;
+  }
+  if( valR < *lwm ) {
+    *lwm = valR;
+    *lwmIdx = idxR;
+  }
+  if( idx < *lwm ) {
+    *lwm = container[ idx ];
+    *lwmIdx = idx;
+  }
+
+  if( subsectionSize ) {
+    return findRecurse(
+        container,
+        subsectionSize >> 1,
+        fullSize,
+        *lwmIdx,
+        ++depth,
+        tries,
+        lwm,
+        lwmIdx
+        );
+  } else {
+    return *lwmIdx;
   }
 }
 
 // Find the transition between 0 and n (ramp start)
-UINT findRampStart( CONTAINER *container, SIZE size, UINT startIdx, UINT *tries )
+UINT findRampStart(
+    CONTAINER *container,
+    SIZE size,
+    UINT startIdx,
+    UINT *tries
+    )
 {
   int i = startIdx;
-  CONTAINER j = 0;
-  return findRecurse( container, size, size, startIdx, RANGE / 2, 0, tries );
+  UINT lwm = ~0;
+  UINT lwmIdx = 0;
+  return findRecurse(
+      container,
+      size / 2,
+      size,
+      startIdx,
+      0,
+      tries,
+      &lwm,
+      &lwmIdx
+      );
 }
 
 void printUsage()
@@ -162,8 +162,6 @@ void printUsage()
 
 int main( int argc, char *argv[])
 {
-
-
   // Seed prandom with time and get startIdx
   srand( ( UINT ) time( NULL ) );
 
@@ -179,11 +177,11 @@ int main( int argc, char *argv[])
     allowDuplicates = dupes ? true : false;
   }
 
-  if( 
-    containerSize > 10000000 || !containerSize ||
-    iterationTot > 10000000 || !iterationTot ||
-    argc < 3
-  ) {
+  if(
+      containerSize > 10000000 || !containerSize ||
+      iterationTot > 10000000 || !iterationTot ||
+      argc < 3
+    ) {
     printUsage();
     return -1;
   }
@@ -207,7 +205,6 @@ int main( int argc, char *argv[])
         &tries );
     triesAccum += tries;
     triesVect.push_back( tries );
-    //std::cout << "FOUND IDX AT " << idx << " IN " << tries << " TRIES." << EL;
   }
 
   // Calculate mean (mu)
