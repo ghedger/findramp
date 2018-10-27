@@ -81,12 +81,11 @@ void generateRamp( CONTAINER *container, SIZE size, UINT startIdx, bool dupes )
     }
     i = (i + 1) % size;
   } while( i != startIdx % size );
-
   printContainer( container, size );
 }
 
 // findRampPivot
-// Find the beginning of the ramp, or "pivot" within a rotated sorted table
+// Find the beginning of the ramp, or "pivot" within a rotated sorted table.
 // Takes the high and low indexes, calculates a midpoint, and recurses into itself
 // zeroing in on the target.
 // Entry: pointer to container
@@ -94,10 +93,10 @@ void generateRamp( CONTAINER *container, SIZE size, UINT startIdx, bool dupes )
 //        high index
 //        pointer to tries (for complexity analyis)
 UINT findRampPivot(
-  const CONTAINER *container,
-  UINT lowIdx,
-  UINT highIdx,
-  UINT *tries )
+    const CONTAINER *container,
+    UINT lowIdx,
+    UINT highIdx,
+    UINT *tries )
 {
   (*tries)++;
   // sanity check
@@ -119,6 +118,86 @@ UINT findRampPivot(
   return findRampPivot( container, midIdx + 1, highIdx, tries );
 }
 
+void skipRepeating( const CONTAINER *container, UINT *idx, INT delta, UINT size )
+{
+  UINT startIdx = *idx;
+  bool wrapped = false; // keep track of this in case we cross the seam, need
+  while( container[ *idx ] == container[ ( (*idx) + delta ) % size ] ) {
+    if( !*idx ) {
+      (*idx) = size + delta;
+      wrapped = true;
+    } else {
+      (*idx) += delta;
+    }
+    // Prevent infinite loop
+    if( *idx == startIdx ) {
+      // TODO: LOG ERROR
+      break;
+    }
+  }
+  // One last little bump to the left and then we're done...
+  if( !*idx ) {
+    (*idx) = size + delta;
+    wrapped = true;
+  } else {
+    (*idx) += delta;
+  }
+}
+
+
+// findRampPivotWithDupes
+// Find the beginning of the ramp, or "pivot" within a rotated sorted table
+// which can have duplicates.
+// Takes the high and low indexes, calculates a midpoint, and recurses into itself
+// zeroing in on the target.
+// Entry: pointer to container
+//        low index
+//        high index
+//        pointer to tries (for complexity analyis)
+UINT findRampPivotWithDupes(
+    const CONTAINER *container,
+    UINT size,
+    UINT lowIdx,
+    UINT highIdx,
+    UINT *tries )
+{
+  (*tries)++;
+  // sanity check
+  if( highIdx == lowIdx )
+    return lowIdx;
+  if( highIdx < lowIdx )
+    return ~0;
+
+  // Zero in on the pivot point based on the relative quantities
+  // at the different indexes.
+  UINT midIdx = ( lowIdx + highIdx ) >> 1;
+  if( midIdx < highIdx && container[ midIdx ] > container[ midIdx + 1 ] )
+    return midIdx;
+  if( midIdx > lowIdx && container[ midIdx ] < container[ midIdx - 1 ] )
+    return midIdx - 1;
+  if( container[ lowIdx ] == container[ midIdx ] ) {
+    if( container[ highIdx ] != container[ midIdx ] ) {
+      // Account for special case where lowIdx and / or midIdx are in the middle
+      // of a repeating run.
+      skipRepeating( container, &lowIdx, -1, size );
+      skipRepeating( container, &midIdx, -1, size );
+      // Enforce search boundary integrity (low < high)
+      if( highIdx < lowIdx ) {
+        UINT swap = highIdx;
+        highIdx = lowIdx;
+        lowIdx = swap;
+      }
+      return findRampPivotWithDupes( container, size, midIdx, highIdx, tries );
+    }
+    return findRampPivotWithDupes( container, size, lowIdx, midIdx - 1, tries );
+  }
+  if( container[ lowIdx ] > container[ midIdx ] )
+    return findRampPivotWithDupes( container, size, lowIdx, midIdx - 1, tries );
+
+  return findRampPivotWithDupes( container, size, midIdx + 1, highIdx, tries );
+}
+
+
 // findRampStart
 // Find the transition between 0 and n (ramp start)
 // Entry: pointer to container
@@ -130,13 +209,14 @@ UINT findRampStart(
     UINT *tries
     )
 {
+  assert( size );
   UINT pivot;
 
   // First, check for edge case where the pivot seam matches the bounds of the array
   // (i.e. array is not rotated)
   if( !container[ 0 ] )
     return 0;
-  pivot = findRampPivot( container, 0, size - 1, tries );
+  pivot = findRampPivotWithDupes( container, size, 0, size - 1, tries );
 
   // EDGE CASE: Skip any repeated entries
   while( container[ ( pivot + 1 ) % size ] == container[ pivot ] )
@@ -161,7 +241,7 @@ int main( int argc, char *argv[])
 {
   // Seed prandom with time and get startIdx
   //srand( ( UINT ) time( NULL ) );
-  srand( 53 );
+  srand( 428 );
 
   // grab params
   UINT containerSize;
@@ -211,14 +291,14 @@ int main( int argc, char *argv[])
     // In this test, it should always find 0.
     // If it does not, that is noteworthy and indicates a bug
     else if( container[ idx ] ) {
-      cout << "Error finding element. idx 0:" << container[0] << endl;
+      cout << "TEST " << i << " Error finding element. idx 0:" << container[0] << " idx:" << idx << endl;
       cout << "Reported: " << idx << ":" << container[idx] << "  ";
 
-   }
-   if( ~0 == idx || container[ idx ] ) {
-       cout << "TEST " << i << ": Actual: " << ( containerSize - container[0] ) % containerSize << ":" <<
+    }
+    if( ~0 == idx || container[ idx ] ) {
+      cout << "TEST " << i << ": Actual: " << ( containerSize - container[0] ) % containerSize << ":" <<
         container[ containerSize - container[0] ] << endl;
-   }
+    }
 
     triesAccum += tries;
     triesVect.push_back( tries );
