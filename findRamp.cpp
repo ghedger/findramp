@@ -6,11 +6,8 @@
 // and help with the understanding of the algorithm.
 //
 // The array is sorted in ascending order.
-// Duplicate values may be present.
-// The upper value bound for the array is unknown.
 
 // Performance for sets with non-unique values is O (log n)
-// Performance for sets containing duplicates is O (log n dupes n)
 //
 // idx[ value ]
 //
@@ -29,16 +26,14 @@
 using namespace std;
 
 // Definitions
-typedef unsigned short CONTAINER;
 typedef __int32_t SIZE;
 typedef __uint32_t UINT;
 typedef __int32_t INT;
+typedef UINT CONTAINER;
 
 // Constants
 const unsigned CONTAINER_SIZE = 32;
 const unsigned SAMPLE_ITERATIONS = 1000;
-const unsigned RANGE = CONTAINER_SIZE;
-const unsigned MAX_DEPTH = 1 << 24;
 const unsigned INCREMENT_BOUND = 4;
 
 // freeContainer
@@ -81,7 +76,7 @@ void generateRamp( CONTAINER *container, SIZE size, UINT startIdx, bool dupes )
     }
     i = (i + 1) % size;
   } while( i != startIdx % size );
-  printContainer( container, size );
+  //printContainer( container, size );
 }
 
 // findRampPivot
@@ -118,90 +113,6 @@ UINT findRampPivot(
   return findRampPivot( container, midIdx + 1, highIdx, tries );
 }
 
-// skipRepeating
-// Skip repeating values in an array of a given size
-// Entry: pointer to container
-//        size of container in elements
-//        pointer to idx to skip
-//        delta (use -1)
-void skipRepeating( const CONTAINER *container, UINT size, UINT *idx, INT delta )
-{
-  UINT startIdx = *idx;
-  bool wrapped = false; // keep track of this in case we cross the seam, need
-  while( container[ *idx ] == container[ ( (*idx) + delta ) % size ] ) {
-    if( !*idx ) {
-      (*idx) = size + delta;
-      wrapped = true;
-    } else {
-      (*idx) += delta;
-    }
-    // Prevent infinite loop
-    if( *idx == startIdx ) {
-      // TODO: LOG ERROR
-      break;
-    }
-  }
-  // One last little bump to the left and then we're done...
-  if( !*idx ) {
-    (*idx) = size + delta;
-    wrapped = true;
-  } else {
-    (*idx) += delta;
-  }
-}
-
-
-// findRampPivotWithDupes
-// Find the beginning of the ramp, or "pivot" within a rotated sorted table
-// which can have duplicates.
-// Takes the high and low indexes, calculates a midpoint, and recurses into itself
-// zeroing in on the target.
-// Entry: pointer to container
-//        low index
-//        high index
-//        pointer to tries (for complexity analyis)
-UINT findRampPivotWithDupes(
-    const CONTAINER *container,
-    UINT size,
-    UINT lowIdx,
-    UINT highIdx,
-    UINT *tries )
-{
-  (*tries)++;
-  // sanity check
-  if( highIdx == lowIdx )
-    return lowIdx;
-  if( highIdx < lowIdx )
-    return ~0;
-
-  // Zero in on the pivot point based on the relative quantities
-  // at the different indexes.
-  UINT midIdx = ( lowIdx + highIdx ) >> 1;
-  if( midIdx < highIdx && container[ midIdx ] > container[ midIdx + 1 ] )
-    return midIdx;
-  if( midIdx > lowIdx && container[ midIdx ] < container[ midIdx - 1 ] )
-    return midIdx - 1;
-  if( container[ lowIdx ] == container[ midIdx ] ) {
-    if( container[ highIdx ] != container[ midIdx ] ) {
-      // Account for special case where lowIdx and / or midIdx are in the middle
-      // of a repeating run.
-      skipRepeating( container, &lowIdx, -1, size );
-      skipRepeating( container, &midIdx, -1, size );
-      // Enforce search boundary integrity (low < high)
-      if( highIdx < lowIdx ) {
-        UINT swap = highIdx;
-        highIdx = lowIdx;
-        lowIdx = swap;
-      }
-      return findRampPivotWithDupes( container, size, midIdx, highIdx, tries );
-    }
-    return findRampPivotWithDupes( container, size, lowIdx, midIdx - 1, tries );
-  }
-  if( container[ lowIdx ] > container[ midIdx ] )
-    return findRampPivotWithDupes( container, size, lowIdx, midIdx - 1, tries );
-
-  return findRampPivotWithDupes( container, size, midIdx + 1, highIdx, tries );
-}
 
 
 // findRampStart
@@ -222,7 +133,7 @@ UINT findRampStart(
   // (i.e. array is not rotated)
   if( !container[ 0 ] )
     return 0;
-  pivot = findRampPivotWithDupes( container, size, 0, size - 1, tries );
+  pivot = findRampPivot( container, 0, size - 1, tries );
 
   // EDGE CASE: Skip any repeated entries
   while( container[ ( pivot + 1 ) % size ] == container[ pivot ] )
@@ -238,7 +149,7 @@ void printUsage()
   cout << "FindRamp" << endl;
   cout << "Copyright (C) 2018 Gregory Hedger" << endl;
   cout << "Usage:" << endl;
-  cout << "\tfindramp <container_size> <#_of_iterations> <duplications>" << endl;
+  cout << "\tfindramp <container_size> <#_of_iterations>" << endl;
   cout << "Example:" << endl;
   cout << "\tfindramp 250 10000 1" << endl;
 }
@@ -253,18 +164,16 @@ int main( int argc, char *argv[])
   UINT containerSize;
   UINT iterationTot;
   bool allowDuplicates;
-  if( argc > 3 ) {
+  if( argc > 2 ) {
     sscanf( argv[1], "%d", &containerSize );
     sscanf( argv[2], "%d", &iterationTot );
-    UINT dupes;
-    sscanf( argv[3], "%d", &dupes );
-    allowDuplicates = dupes ? true : false;
+    allowDuplicates = false;
   }
 
   if(
       containerSize > 10000000 || !containerSize ||
       iterationTot > 10000000 || !iterationTot ||
-      argc < 3
+      argc < 2
     ) {
     printUsage();
     return -1;
