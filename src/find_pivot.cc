@@ -34,42 +34,42 @@ const unsigned CONTAINER_SIZE = 32;
 const unsigned SAMPLE_ITERATIONS = 1000;
 const unsigned INCREMENT_BOUND = 4;
 
-// freeContainer
+// FreeContainer
 // Deallocate container resources
 // Entry: pointer to container
-void freeContainer(CONTAINER *container)
+void FreeContainer(CONTAINER *container)
 {
   if (container) {
     delete container;
   }
 }
 
-// allocContainer
+// AllocContainer
 // Allocate container resources
 // Entry: size of container
 // Exit: pointer to container
-CONTAINER *allocContainer(SIZE size)
+CONTAINER *AllocContainer(SIZE size)
 {
   return new CONTAINER[ size ];
 }
 
-// printContainer
+// PrintContainer
 // Print the contents of the container to stdout
 // Entry: pointer to container
 //        size of container
-void printContainer(CONTAINER *container, SIZE size)
+void PrintContainer(CONTAINER *container, SIZE size)
 {
   for (auto i = 0; i < size; i++)
     std::cout << container[ i ] << " ";
   std::cout << std::endl;
 }
 
-// generateRamp
+// GenerateRamp
 // Entry: pointer to container
 //        size of container
 //        start index in container
 //        true == allow duplicates, false == increment by one
-void generateRamp(CONTAINER *container, SIZE size, UINT startIdx, bool dupes)
+void GenerateRamp(CONTAINER *container, SIZE size, UINT startIdx, bool dupes)
 {
   UINT i = startIdx;
   CONTAINER j = 0;
@@ -83,10 +83,10 @@ void generateRamp(CONTAINER *container, SIZE size, UINT startIdx, bool dupes)
     }
     i = (i + 1) % size;
   } while (i != startIdx % size);
-  //printContainer(container, size);
+  //PrintContainer(container, size);
 }
 
-// findRampPivot
+// FindRampPivot
 // Find the beginning of the ramp, or "pivot" within a rotated sorted table.
 // Takes the high and low indexes, calculates a midpoint, and recurses into itself
 // zeroing in on the target.
@@ -94,38 +94,38 @@ void generateRamp(CONTAINER *container, SIZE size, UINT startIdx, bool dupes)
 //        low index
 //        high index
 //        pointer to tries (for complexity analyis)
-UINT findRampPivot(
+UINT FindRampPivot(
     const CONTAINER *container,
-    UINT lowIdx,
-    UINT highIdx,
+    UINT left_idx,
+    UINT right_idx,
     UINT *tries)
 {
-  (*tries)++;
+  (*tries)++;     // bookkeeping/analysis
   // sanity check
-  if (highIdx == lowIdx)
-    return lowIdx;
-  if (highIdx < lowIdx)
+  if (right_idx == left_idx)
+    return left_idx;
+  if (right_idx < left_idx)
     return ~0;
 
   // Zero in on the pivot point based on the relative quantities
   // at the different indexes.
-  UINT midIdx = (lowIdx + highIdx) >> 1;
-  if (midIdx < highIdx && container[ midIdx ] > container[ midIdx + 1 ])
-    return midIdx;
-  if (midIdx > lowIdx && container[ midIdx ] < container[ midIdx - 1 ])
-    return midIdx - 1;
-  if (container[ lowIdx ] >= container[ midIdx ]) {
-    return findRampPivot(container, lowIdx, midIdx - 1, tries);
+  UINT mid_idx = (left_idx + right_idx) >> 1;
+  if (mid_idx < right_idx && container[ mid_idx ] > container[ mid_idx + 1 ])
+    return mid_idx;
+  if (mid_idx > left_idx && container[ mid_idx ] < container[ mid_idx - 1 ])
+    return mid_idx - 1;
+  if (container[ left_idx ] >= container[ mid_idx ]) {
+    return FindRampPivot(container, left_idx, mid_idx - 1, tries);
   }
-  return findRampPivot(container, midIdx + 1, highIdx, tries);
+  return FindRampPivot(container, mid_idx + 1, right_idx, tries);
 }
 
-// findRampStart
+// FindRampStart
 // Find the transition between 0 and n (ramp start)
 // Entry: pointer to container
 //        size of container in elements
 //        pointer to tries count (for complexity analysis)
-UINT findRampStart(
+UINT FindRampStart(
     CONTAINER *container,
     SIZE size,
     UINT *tries
@@ -138,7 +138,7 @@ UINT findRampStart(
   // (i.e. array is not rotated)
   if (!container[ 0 ])
     return 0;
-  pivot = findRampPivot(container, 0, size - 1, tries);
+  pivot = FindRampPivot(container, 0, size - 1, tries);
 
   // EDGE CASE: Skip any repeated entries
   while (container[ (pivot + 1) % size ] == container[ pivot ])
@@ -149,7 +149,7 @@ UINT findRampStart(
   return pivot;
 }
 
-void printUsage()
+void PrintUsage()
 {
   std::cout << "FindRamp" << std::endl;
   std::cout << "Copyright (C) 2018 Gregory Hedger" << std::endl;
@@ -166,26 +166,26 @@ int main(int argc, char *argv[])
   srand(428);
 
   // grab params
-  UINT containerSize;
-  UINT iterationTot;
+  UINT container_size;
+  UINT iteration_tot;
   bool allowDuplicates;
   if (argc > 2) {
-    sscanf(argv[1], "%d", &containerSize);
-    sscanf(argv[2], "%d", &iterationTot);
+    sscanf(argv[1], "%d", &container_size);
+    sscanf(argv[2], "%d", &iteration_tot);
     allowDuplicates = false;
   }
 
   if (
-      containerSize > 10000000 || !containerSize ||
-      iterationTot > 10000000 || !iterationTot ||
+      container_size > 10000000 || !container_size ||
+      iteration_tot > 10000000 || !iteration_tot ||
       argc < 2
   ) {
-    printUsage();
+    PrintUsage();
     return -1;
   }
 
   // Allocate and generate container
-  CONTAINER *container = allocContainer(containerSize);
+  CONTAINER *container = AllocContainer(container_size);
   if (!container) {
     std::cout << "Memory allocation error" << std::endl;
     return -1;
@@ -193,17 +193,17 @@ int main(int argc, char *argv[])
 
   // Perform test
   double sigma = 0.0, mu = 0.0;
-  UINT triesAccum = 0;
-  std::vector<UINT> triesVect;
-  for (UINT i = 0; i < iterationTot; i++)
+  UINT tries_accum = 0;
+  std::vector<UINT> tries_vect;
+  for (UINT i = 0; i < iteration_tot; i++)
   {
     //srand(i);
-    UINT startIdx = rand() % containerSize;
-    generateRamp(container, containerSize, startIdx, allowDuplicates);
+    UINT startIdx = rand() % container_size;
+    GenerateRamp(container, container_size, startIdx, allowDuplicates);
     UINT tries = 0;
-    UINT idx = findRampStart(
+    UINT idx = FindRampStart(
         container,
-        containerSize,
+        container_size,
         &tries);
     if ((UINT) ~0 == idx) {
       std::cout << "Error in search parameters." << std::endl;
@@ -216,31 +216,31 @@ int main(int argc, char *argv[])
 
     }
     if ((UINT) ~0 == idx || container[ idx ]) {
-      std::cout << "TEST " << i << ": Actual: " << (containerSize - container[0]) % containerSize << ":" <<
-        container[ containerSize - container[0] ] << std::endl;
+      std::cout << "TEST " << i << ": Actual: " << (container_size - container[0]) % container_size << ":" <<
+        container[ container_size - container[0] ] << std::endl;
     }
 
-    triesAccum += tries;
-    triesVect.push_back(tries);
+    tries_accum += tries;
+    tries_vect.push_back(tries);
   }
 
   // Calculate mean (mu)
-  mu = (double) triesAccum / (double) iterationTot;
+  mu = (double) tries_accum / (double) iteration_tot;
 
   // Calculate std deviation (sigma)
-  double sigmaAccum = 0.0;
-  while (!triesVect.empty()) {
-    UINT compVal =triesVect.back();
-    triesVect.pop_back();
-    sigmaAccum += pow(( (double) compVal - mu), 2);
+  double sigma_accum = 0.0;
+  while (!tries_vect.empty()) {
+    UINT compVal =tries_vect.back();
+    tries_vect.pop_back();
+    sigma_accum += pow(( (double) compVal - mu), 2);
   }
-  sigma = sqrt(sigmaAccum / iterationTot);
+  sigma = sqrt(sigma_accum / iteration_tot);
 
   std::cout << "TRIES MU: " << mu << std::endl;
   std::cout << "TRIES SIGMA: " << sigma << std::endl;
 
   // Clean up and go home
-  freeContainer(container);
+  FreeContainer(container);
   container = NULL;
 
   return 0;

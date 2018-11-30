@@ -13,7 +13,7 @@ SRCEXT      := cc
 DEPEXT      := d
 OBJEXT      := o
 
-VERSION			:= 2.1
+VERSION			:= 1.0
 PKG         := $(TARGET)
 
 INSTDIR = /usr/local/bin/$(EXE)
