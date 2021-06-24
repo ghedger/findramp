@@ -16,32 +16,30 @@
 //
 // Copyright (C) 2018 Gregory Hedger
 
-#include <stdio.h>
-#include <math.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cmath>
 #include <iostream>
-#include <time.h>
-#include <assert.h>
+#include <ctime>
+#include <cassert>
 #include <vector>
 
 // Definitions
 typedef __int32_t SIZE;
 typedef __uint32_t UINT;
-typedef __int32_t INT;
 typedef UINT CONTAINER;
 
 // Constants
-const unsigned CONTAINER_SIZE = 32;
-const unsigned SAMPLE_ITERATIONS = 1000;
 const unsigned INCREMENT_BOUND = 4;
 
 // FreeContainer
 // Deallocate container resources
 // Entry: pointer to container
-void FreeContainer(CONTAINER *container)
+void FreeContainer(const CONTAINER *container)
 {
-  if (container) {
+
     delete container;
-  }
+
 }
 
 // AllocContainer
@@ -75,7 +73,11 @@ void GenerateRamp(CONTAINER *container, SIZE size, UINT startIdx, bool dupes)
   CONTAINER j = 0;
   do {
     container[ i ] = j;
-    j += dupes ? rand() % INCREMENT_BOUND : 1;
+    if (dupes) {
+      j += rand() % INCREMENT_BOUND;
+    } else {
+      j += 1;
+    }
     if (!dupes) {
       if (!j) {
         j++;
@@ -94,6 +96,8 @@ void GenerateRamp(CONTAINER *container, SIZE size, UINT startIdx, bool dupes)
 //        low index
 //        high index
 //        pointer to tries (for complexity analyis)
+// Exit: pivot
+// NOTE: Recursive function
 UINT FindRampPivot(
     const CONTAINER *container,
     UINT left_idx,
@@ -114,7 +118,7 @@ UINT FindRampPivot(
     return mid_idx;
   if (mid_idx > left_idx && container[ mid_idx ] < container[ mid_idx - 1 ])
     return mid_idx - 1;
-  if (container[ left_idx ] >= container[ mid_idx ]) {
+  if (container[ left_idx ] > container[ mid_idx ]) {
     return FindRampPivot(container, left_idx, mid_idx - 1, tries);
   }
   return FindRampPivot(container, mid_idx + 1, right_idx, tries);
@@ -138,6 +142,7 @@ UINT FindRampStart(
   // (i.e. array is not rotated)
   if (!container[ 0 ])
     return 0;
+
   pivot = FindRampPivot(container, 0, size - 1, tries);
 
   // EDGE CASE: Skip any repeated entries
@@ -156,23 +161,34 @@ void PrintUsage()
   std::cout << "Usage:" << std::endl;
   std::cout << "\tfindramp <container_size> <#_of_iterations>" << std::endl;
   std::cout << "Example:" << std::endl;
-  std::cout << "\tfindramp 250 10000 1" << std::endl;
+  std::cout << "\tfindramp 250 10000" << std::endl;
 }
 
 int main(int argc, char *argv[])
 {
   // Seed prandom with time and get startIdx
-  //srand(( UINT) time(NULL));
-  srand(428);
+  srand(( UINT) time(nullptr));
+  //srand(428);
 
   // grab params
-  UINT container_size;
+  SIZE container_size;
   UINT iteration_tot;
   bool allowDuplicates;
+  bool printContainer = false;
   if (argc > 2) {
-    sscanf(argv[1], "%d", &container_size);
-    sscanf(argv[2], "%d", &iteration_tot);
+    strtol(argv[1], reinterpret_cast<char **>(&container_size), 10);
+    strtol(argv[1], reinterpret_cast<char **>(&iteration_tot), 10);
+    //sscanf(argv[2], "%d", &iteration_tot);
+
+    //sscanf(argv[1], "%d", &container_size);
+    //sscanf(argv[2], "%d", &iteration_tot);
     allowDuplicates = false;
+    if (argc > 3) {
+      printContainer = true;
+    }
+  } else {
+    PrintUsage();
+    return -1;
   }
 
   if (
@@ -186,13 +202,8 @@ int main(int argc, char *argv[])
 
   // Allocate and generate container
   CONTAINER *container = AllocContainer(container_size);
-  if (!container) {
-    std::cout << "Memory allocation error" << std::endl;
-    return -1;
-  }
 
   // Perform test
-  double sigma = 0.0, mu = 0.0;
   UINT tries_accum = 0;
   std::vector<UINT> tries_vect;
   for (UINT i = 0; i < iteration_tot; i++)
@@ -213,7 +224,6 @@ int main(int argc, char *argv[])
     else if (container[ idx ]) {
       std::cout << "TEST " << i << " Error finding element. idx 0:" << container[0] << " idx:" << idx << std::endl;
       std::cout << "Reported: " << idx << ":" << container[idx] << "  ";
-
     }
     if ((UINT) ~0 == idx || container[ idx ]) {
       std::cout << "TEST " << i << ": Actual: " << (container_size - container[0]) % container_size << ":" <<
@@ -225,7 +235,8 @@ int main(int argc, char *argv[])
   }
 
   // Calculate mean (mu)
-  mu = (double) tries_accum / (double) iteration_tot;
+  double sigma;
+  double mu = (double) tries_accum / (double) iteration_tot;
 
   // Calculate std deviation (sigma)
   double sigma_accum = 0.0;
@@ -239,9 +250,10 @@ int main(int argc, char *argv[])
   std::cout << "TRIES MU: " << mu << std::endl;
   std::cout << "TRIES SIGMA: " << sigma << std::endl;
 
+  if (printContainer) PrintContainer(container, container_size);
+
   // Clean up and go home
   FreeContainer(container);
-  container = NULL;
 
   return 0;
 }

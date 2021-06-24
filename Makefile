@@ -25,7 +25,7 @@ CONFDIR = ~/$(TARGET)
 #CFLAGS      := -Wall -O0 -pg -ggdb -c
 #LFLAGS      := -pg
 #DEBUGGING
-CFLAGS      := -std=c++11 -Wall -O0 -ggdb -c -finstrument-functions
+CFLAGS      := -std=c++14 -Wall -O0 -ggdb -c -finstrument-functions
 #OPTIMIZED
 #CFLAGS      := -std=c++11 -Wall -O3 -c
 CFLAGS 		+= $(CURL_CFLAGS)
